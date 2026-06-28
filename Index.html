@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Health Log">
+<title>Health Log</title>
+<style>
+  :root{
+    --bg:#0d1117;
+    --bg-2:#11161d;
+    --bg-3:#161c25;
+    --line:#222b36;
+    --line-soft:#1a2029;
+    --text:#e7ecf2;
+    --muted:#8b97a6;
+    --faint:#586675;
+    --accent:#56d4c4;
+    --accent-dim:rgba(86,212,196,.12);
+    --accent-line:rgba(86,212,196,.35);
+    --amber:#e6a15c;
+    --danger:#e06c75;
+    --radius:14px;
+    --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    font-size:16px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    padding:0 0 env(safe-area-inset-bottom);
+  }
+  .wrap{max-width:680px;margin:0 auto;padding:0 16px 64px;}
+
+  /* Header */
+  header{
+    padding:max(18px,env(safe-area-inset-top)) 0 14px;
+    position:sticky;top:0;z-index:5;
+    background:linear-gradient(var(--bg) 72%,rgba(13,17,23,0));
+  }
+  .eyebrow{
+    font-family:var(--mono);font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--accent);opacity:.85;margin:0 0 2px;
+  }
+  h1{font-size:22px;font-weight:650;letter-spacing:-.01em;margin:0;}
+  .trace{display:block;width:100%;height:18px;margin:8px 0 2px;opacity:.5;}
+  .stats{
+    font-family:var(--mono);font-size:11.5px;color:var(--faint);
+    display:flex;gap:14px;flex-wrap:wrap;margin-top:2px;
+  }
+  .stats b{color:var(--muted);font-weight:600;}
+
+  /* Capture */
+  .capture{
+    background:var(--bg-2);border:1px solid var(--line);
+    border-radius:var(--radius);padding:12px;margin:6px 0 22px;
+  }
+  .capture.dirty{border-color:var(--accent-line);}
+  .hint{font-size:13px;color:var(--muted);margin:0 0 9px;display:flex;align-items:center;gap:7px;}
+  .hint svg{flex:none;}
+  textarea{
+    width:100%;min-height:120px;resize:vertical;
+    background:var(--bg-3);color:var(--text);
+    border:1px solid var(--line);border-radius:10px;
+    padding:12px;font-family:var(--sans);font-size:16px;line-height:1.55;
+    outline:none;
+  }
+  textarea:focus{border-color:var(--accent-line);}
+  textarea::placeholder{color:var(--faint);}
+  .caprow{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px;}
+  .nowstamp{font-family:var(--mono);font-size:11.5px;color:var(--faint);}
+  .btn{
+    font-family:var(--sans);font-size:15px;font-weight:600;
+    border:1px solid var(--line);background:var(--bg-3);color:var(--text);
+    padding:11px 16px;border-radius:10px;cursor:pointer;line-height:1;
+  }
+  .btn:active{transform:translateY(1px);}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#06231f;}
+  .btn.primary:disabled{opacity:.4;background:var(--bg-3);border-color:var(--line);color:var(--muted);}
+  .btn.ghost{background:transparent;}
+  .btn.sm{padding:7px 11px;font-size:13px;font-weight:550;}
+
+  /* Toolbar */
+  .toolbar{display:flex;gap:8px;margin:0 0 16px;flex-wrap:wrap;}
+  .toolbar .btn{flex:1;min-width:120px;text-align:center;}
+
+  /* Log */
+  .loghead{
+    font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--faint);margin:6px 0 12px;display:flex;align-items:center;gap:10px;
+  }
+  .loghead::after{content:"";flex:1;height:1px;background:var(--line-soft);}
+
+  .entry{
+    display:grid;grid-template-columns:64px 1fr;gap:14px;
+    padding:14px 0;border-top:1px solid var(--line-soft);
+  }
+  .entry:first-child{border-top:none;}
+  .rail{font-family:var(--mono);font-size:11px;color:var(--faint);line-height:1.45;padding-top:1px;}
+  .rail .t{color:var(--accent);opacity:.9;}
+  .rail .rel{display:block;color:var(--faint);margin-top:3px;}
+  .body{min-width:0;}
+  .etext{white-space:pre-wrap;word-wrap:break-word;font-size:15.5px;line-height:1.55;}
+  .erow{display:flex;gap:14px;margin-top:8px;}
+  .erow button{
+    background:none;border:none;color:var(--faint);font-family:var(--sans);
+    font-size:12.5px;cursor:pointer;padding:0;
+  }
+  .erow button:active{color:var(--text);}
+  .erow .del:active{color:var(--danger);}
+  .editbox{width:100%;min-height:90px;margin-top:2px;}
+  .editrow{display:flex;gap:8px;margin-top:8px;}
+
+  /* Empty */
+  .empty{
+    text-align:center;color:var(--muted);padding:34px 18px;
+    border:1px dashed var(--line);border-radius:var(--radius);
+  }
+  .empty .big{color:var(--text);font-size:15px;font-weight:600;margin-bottom:6px;}
+  .empty p{margin:0;font-size:13.5px;line-height:1.55;}
+
+  .footnote{font-size:11.5px;color:var(--faint);text-align:center;margin-top:26px;line-height:1.5;}
+
+  /* Toast */
+  #toast{
+    position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom));
+    transform:translateX(-50%) translateY(12px);
+    background:var(--bg-3);border:1px solid var(--accent-line);color:var(--text);
+    padding:10px 16px;border-radius:999px;font-size:13.5px;
+    opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:50;
+    box-shadow:0 8px 30px rgba(0,0,0,.5);
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  @media (prefers-reduced-motion:reduce){
+    .blip{animation:none!important;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Personal Log</p>
+    <h1>Health Log</h1>
+    <svg class="trace" viewBox="0 0 600 18" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M0 9 H230 l8 -7 6 14 7 -11 5 8 4 -3 H280 l9 0 5 -9 6 12 H600"
+            fill="none" stroke="var(--accent)" stroke-width="1.4" stroke-linejoin="round"/>
+    </svg>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <section class="capture" id="capture">
+    <p class="hint">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+      Tap the field, press the mic key on your keyboard, and just talk.
+    </p>
+    <textarea id="input" placeholder="What are you noticing right now? Food, symptoms, sleep, energy, mood — anything, in any order. No need to be tidy."></textarea>
+    <div class="caprow">
+      <span class="nowstamp" id="now"></span>
+      <button class="btn primary" id="save" disabled>Save entry</button>
+    </div>
+  </section>
+
+  <div class="toolbar">
+    <button class="btn" id="share">Export</button>
+    <button class="btn ghost" id="copy">Copy for Claude</button>
+  </div>
+
+  <div class="loghead">Timeline</div>
+  <div id="log"></div>
+
+  <p class="footnote" id="foot"></p>
+</div>
+
+<div id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+  var KEY = "healthlog.entries.v1";
+  var entries = [];
+  var editingId = null;
+
+  /* ---------- storage ---------- */
+  function load(){
+    try{ var raw = localStorage.getItem(KEY); entries = raw ? JSON.parse(raw) : []; }
+    catch(e){ entries = []; }
+    if(!Array.isArray(entries)) entries = [];
+  }
+  function persist(){
+    try{ localStorage.setItem(KEY, JSON.stringify(entries)); }
+    catch(e){ toast("Couldn't save — storage may be blocked"); }
+  }
+
+  /* ---------- helpers ---------- */
+  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+  function pad(n){ return n<10 ? "0"+n : ""+n; }
+  function fmtDate(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+  function fmtTime(d){ return pad(d.getHours())+":"+pad(d.getMinutes()); }
+  function fmtStamp(d){ return fmtDate(d)+"  "+fmtTime(d); }
+  function relTime(iso){
+    var diff = (Date.now() - new Date(iso).getTime())/1000;
+    if(diff < 60) return "just now";
+    if(diff < 3600) return Math.floor(diff/60)+"m ago";
+    if(diff < 86400) return Math.floor(diff/3600)+"h ago";
+    var dys = Math.floor(diff/86400);
+    if(dys < 7) return dys+"d ago";
+    return Math.floor(dys/7)+"w ago";
+  }
+
+  /* ---------- render ---------- */
+  function render(){
+    var log = document.getElementById("log");
+    log.innerHTML = "";
+    if(entries.length === 0){
+      var e = document.createElement("div");
+      e.className = "empty";
+      e.innerHTML = '<div class="big">Nothing logged yet</div><p>Your entries appear here, newest first. Each one is stamped with the date and time automatically.</p>';
+      log.appendChild(e);
+    } else {
+      var sorted = entries.slice().sort(function(a,b){ return new Date(b.ts) - new Date(a.ts); });
+      sorted.forEach(function(en){ log.appendChild(rowFor(en)); });
+    }
+    renderStats();
+  }
+
+  function rowFor(en){
+    var d = new Date(en.ts);
+    var row = document.createElement("div");
+    row.className = "entry";
+
+    var rail = document.createElement("div");
+    rail.className = "rail";
+    rail.innerHTML = '<span class="t">'+fmtDate(d)+'<br>'+fmtTime(d)+'</span><span class="rel">'+relTime(en.ts)+'</span>';
+    row.appendChild(rail);
+
+    var body = document.createElement("div");
+    body.className = "body";
+
+    if(editingId === en.id){
+      var ta = document.createElement("textarea");
+      ta.className = "editbox";
+      ta.value = en.text;
+      body.appendChild(ta);
+      var er = document.createElement("div");
+      er.className = "editrow";
+      var sv = document.createElement("button");
+      sv.className = "btn primary sm"; sv.textContent = "Save";
+      sv.onclick = function(){ en.text = ta.value.trim() || en.text; editingId = null; persist(); render(); toast("Updated"); };
+      var cx = document.createElement("button");
+      cx.className = "btn ghost sm"; cx.textContent = "Cancel";
+      cx.onclick = function(){ editingId = null; render(); };
+      er.appendChild(sv); er.appendChild(cx);
+      body.appendChild(er);
+      setTimeout(function(){ ta.focus(); }, 30);
+    } else {
+      var txt = document.createElement("div");
+      txt.className = "etext";
+      txt.textContent = en.text;
+      body.appendChild(txt);
+
+      var er = document.createElement("div");
+      er.className = "erow";
+      var ed = document.createElement("button");
+      ed.textContent = "Edit";
+      ed.onclick = function(){ editingId = en.id; render(); };
+      var dl = document.createElement("button");
+      dl.className = "del"; dl.textContent = "Delete";
+      dl.onclick = function(){
+        if(confirm("Delete this entry?")){
+          entries = entries.filter(function(x){ return x.id !== en.id; });
+          persist(); render(); toast("Deleted");
+        }
+      };
+      er.appendChild(ed); er.appendChild(dl);
+      body.appendChild(er);
+    }
+
+    row.appendChild(body);
+    return row;
+  }
+
+  function renderStats(){
+    var s = document.getElementById("stats");
+    if(entries.length === 0){ s.innerHTML = '<span><b>0</b> entries</span>'; document.getElementById("foot").textContent=""; return; }
+    var ts = entries.map(function(e){ return new Date(e.ts); }).sort(function(a,b){ return a-b; });
+    var first = fmtDate(ts[0]), last = fmtDate(ts[ts.length-1]);
+    s.innerHTML = '<span><b>'+entries.length+'</b> entries</span><span>'+first+' &rarr; '+last+'</span>';
+    document.getElementById("foot").textContent = "Stored on this device only. Export regularly to keep a backup.";
+  }
+
+  /* ---------- capture ---------- */
+  var input = document.getElementById("input");
+  var saveBtn = document.getElementById("save");
+  var capture = document.getElementById("capture");
+
+  function refreshSave(){
+    var has = input.value.trim().length > 0;
+    saveBtn.disabled = !has;
+    capture.classList.toggle("dirty", has);
+  }
+  input.addEventListener("input", refreshSave);
+
+  function add(){
+    var text = input.value.trim();
+    if(!text) return;
+    entries.push({ id: uid(), ts: new Date().toISOString(), text: text });
+    persist();
+    input.value = "";
+    refreshSave();
+    input.blur();
+    render();
+    toast("Logged \u2713");
+  }
+  saveBtn.addEventListener("click", add);
+
+  /* ---------- clock ---------- */
+  function tickNow(){ document.getElementById("now").textContent = fmtStamp(new Date()); }
+  tickNow(); setInterval(tickNow, 15000);
+  setInterval(function(){ if(editingId===null) render(); }, 60000); // refresh "x ago"
+
+  /* ---------- export ---------- */
+  function buildMarkdown(){
+    var sorted = entries.slice().sort(function(a,b){ return new Date(a.ts) - new Date(b.ts); });
+    var now = new Date();
+    var head = "# Health Log Export\n";
+    head += "Generated: " + now.toISOString() + "\n";
+    if(sorted.length){
+      var t0 = new Date(sorted[0].ts), t1 = new Date(sorted[sorted.length-1].ts);
+      head += "Entries: " + sorted.length + "  |  Range: " + fmtDate(t0) + " to " + fmtDate(t1) + "\n";
+    }
+    head += "\n---\n\n";
+    var body = sorted.map(function(e){
+      var d = new Date(e.ts);
+      return "## " + fmtDate(d) + " " + fmtTime(d) + "\n" + e.text + "\n";
+    }).join("\n");
+    return head + body;
+  }
+
+  document.getElementById("share").addEventListener("click", function(){
+    if(entries.length === 0){ toast("Nothing to export yet"); return; }
+    var md = buildMarkdown();
+    var fname = "health-log-" + fmtDate(new Date()) + ".md";
+    if(navigator.share){
+      var file;
+      try{ file = new File([md], fname, { type:"text/markdown" }); }catch(e){ file = null; }
+      if(file && navigator.canShare && navigator.canShare({ files:[file] })){
+        navigator.share({ files:[file], title:"Health Log" }).catch(function(){});
+        return;
+      }
+      navigator.share({ title:"Health Log", text:md }).catch(function(){ downloadMd(md, fname); });
+      return;
+    }
+    downloadMd(md, fname);
+  });
+
+  function downloadMd(md, fname){
+    var blob = new Blob([md], { type:"text/markdown" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = fname;
+    document.body.appendChild(a); a.click();
+    setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(a.href); }, 1000);
+  }
+
+  document.getElementById("copy").addEventListener("click", function(){
+    if(entries.length === 0){ toast("Nothing to copy yet"); return; }
+    var md = buildMarkdown();
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(md).then(function(){ toast("Copied \u2014 paste into Claude"); })
+        .catch(function(){ legacyCopy(md); });
+    } else { legacyCopy(md); }
+  });
+  function legacyCopy(text){
+    var ta = document.createElement("textarea");
+    ta.value = text; ta.style.position="fixed"; ta.style.opacity="0";
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    try{ document.execCommand("copy"); toast("Copied \u2014 paste into Claude"); }
+    catch(e){ toast("Copy failed"); }
+    document.body.removeChild(ta);
+  }
+
+  /* ---------- toast ---------- */
+  var toastTimer;
+  function toast(msg){
+    var t = document.getElementById("toast");
+    t.textContent = msg; t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ t.classList.remove("show"); }, 1900);
+  }
+
+  /* ---------- init ---------- */
+  load(); render(); refreshSave();
+})();
+</script>
+</body>
+</html>
